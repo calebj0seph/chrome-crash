@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>This page will crash Chrome</title>
+    <style>
+      /* CSS is not relevant to the crash */
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        width: 100vw;
+        margin: 0;
+        padding: 16px;
+      }
+      h1 {
+        font-family: sans-serif;
+        font-size: 32px;
+        font-weight: 400;
+        animation: circular-motion 2.5s linear infinite;
+      }
+      @keyframes circular-motion {
+        0% {
+          transform: rotate(0deg) translate(10px) rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg) translate(10px) rotate(-360deg);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <h1 id="counter">Crashing in 5 seconds...</h1>
+    <script>
+      /**
+       * Returns an AbortSignal that will be aborted when the first of the given signals is
+       * aborted.
+       */
+      function race(...signals) {
+        const controller = new AbortController();
+
+        for (const signal of signals) {
+          if (signal) {
+            if (signal.aborted) {
+              return signal;
+            } else {
+              signal.addEventListener(
+                "abort",
+                () => {
+                  controller.abort();
+                },
+                {
+                  signal: controller.signal,
+                }
+              );
+            }
+          }
+        }
+
+        return controller.signal;
+      }
+
+      function crashChrome() {
+        let x = 0;
+        for (let i = 0; i < 100000; i++) {
+          // Create two new AbortControllers with a simple event listener on their AbortSignal
+          // that increments x
+          const a = new AbortController();
+          const b = new AbortController();
+          a.signal.addEventListener("abort", () => {
+            x++;
+          });
+          b.signal.addEventListener("abort", () => {
+            x++;
+          });
+
+          // Create a new AbortSignal that will be aborted when the first of the above
+          // signals are aborted
+          race(a.signal, b.signal);
+
+          // Abort one of the signals after 1s
+          setTimeout(() => {
+            a.abort();
+          }, 1000);
+        }
+      }
+
+      // Start the crash after 5s (not relevant to the actual crash)
+      let remaining = 5;
+      const interval = setInterval(() => {
+        remaining--;
+        const counter = document.getElementById("counter");
+        counter.innerText = `Crashing in ${remaining} seconds...`;
+
+        if (remaining === 1) {
+          clearInterval(interval);
+          setTimeout(() => {
+            crashChrome();
+          }, 100);
+        }
+      }, 1000);
+    </script>
+  </body>
+</html>
